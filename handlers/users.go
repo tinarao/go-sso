@@ -17,7 +17,6 @@ func GetUsers(c *fiber.Ctx) error {
 	if len(data) == 0 {
 		return c.Status(200).JSON(fiber.Map{
 			"message": "Table is empty!",
-			"users":   data,
 		})
 	}
 
@@ -111,5 +110,26 @@ func DeleteUser(c *fiber.Ctx) error {
 
 	return c.Status(200).JSON(fiber.Map{
 		"deleted user": userToDelete.Email,
+	})
+}
+
+func DeleteAllUsers(c *fiber.Ctx) error {
+	deletedAccounts := 0
+	data := []models.User{}
+	db.DB.Db.Find(&data)
+
+	if len(data) == 0 {
+		return c.Status(200).JSON(fiber.Map{
+			"message": "Table is empty!",
+		})
+	}
+
+	for _, x := range data {
+		db.DB.Db.Delete(&x)
+		deletedAccounts += 1
+	}
+
+	return c.Status(200).JSON(fiber.Map{
+		"deleted users": deletedAccounts,
 	})
 }

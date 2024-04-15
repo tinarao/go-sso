@@ -1,6 +1,3 @@
-
-
-run container bash:
 ```shell
 docker compose up
 docker compose run --service-ports web bash

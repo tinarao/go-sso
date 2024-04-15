@@ -19,15 +19,29 @@ type Credentials struct {
 	Password string `json:"password"`
 }
 
-func Protected(fn fiber.Handler) fiber.Handler {
+func Protected(fn fiber.Handler, roles []string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var headers map[string][]string
 		headers = c.GetReqHeaders()
 		if headers["Authorization"] != nil {
-			if err := JWTChecker(headers["Authorization"]); err != nil {
+			checkedRole, err := JWTChecker(headers["Authorization"])
+			if err != nil {
 				log.Error(err)
 				return c.Status(403).JSON(fiber.Map{
 					"message": "Forbidden",
+				})
+			}
+
+			var isValidRole bool
+			for _, r := range roles {
+				if checkedRole == r {
+					isValidRole = true
+				}
+			}
+
+			if !isValidRole {
+				return c.Status(403).JSON(fiber.Map{
+					"message": "Forbidden. For you.",
 				})
 			}
 		} else {
@@ -39,10 +53,10 @@ func Protected(fn fiber.Handler) fiber.Handler {
 	}
 }
 
-func JWTChecker(token []string) error {
+func JWTChecker(token []string) (string, error) {
 	var arr = strings.Split(token[0], " ")
 	if len(arr) != 2 {
-		return errors.New("Invalid token")
+		return "", errors.New("invalid token")
 	}
 	tokenStr := arr[1]
 
@@ -50,10 +64,10 @@ func JWTChecker(token []string) error {
 		return []byte(os.Getenv("JWT_SECRET")), nil
 	})
 	if err != nil {
-		return err
-	} else if _, ok := parsedToken.Claims.(*config.JwtClaims); ok {
-		return nil
+		return "", err
+	} else if token, ok := parsedToken.Claims.(*config.JwtClaims); ok {
+		return token.Role, nil
 	} else {
-		return err
+		return "", err
 	}
 }
