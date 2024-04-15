@@ -99,11 +99,11 @@ func DeleteUser(c *fiber.Ctx) error {
 
 	if requester.Role != "admin" && userToDelete.ID != requester.ID {
 		return c.Status(403).JSON(fiber.Map{
-			"message": "Forbidden",
+			"message": "You can only delete your own account",
 		})
 	} else if userToDelete.Role == "admin" {
 		return c.Status(403).JSON(fiber.Map{
-			"message": "Forbidden",
+			"message": "You can't delete this account",
 		})
 	}
 
