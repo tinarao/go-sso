@@ -14,4 +14,7 @@ func SetupRoutes(app *fiber.App) {
 	auth.Post("/register", handlers.Register)
 
 	users.Get("/", handlers.GetUsers)
+	users.Get("/role/:email", handlers.GetUserRole)
+	users.Get("/info/:email", handlers.GetUserInfo)
+	users.Delete("/:email/:token", handlers.DeleteUser)
 }

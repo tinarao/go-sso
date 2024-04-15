@@ -3,8 +3,13 @@ package handlers
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v3/log"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/tinarao/go-sso/config"
 	"github.com/tinarao/go-sso/db"
 	"github.com/tinarao/go-sso/models"
+	"golang.org/x/crypto/bcrypt"
+	"os"
+	"time"
 )
 
 func Login(c *fiber.Ctx) error {
@@ -15,8 +20,40 @@ func Login(c *fiber.Ctx) error {
 		return err
 	}
 
+	candidate := &models.User{}
+	db.DB.Db.Where("email = ?", doc.Email).First(&candidate)
+
+	if candidate.Email != doc.Email {
+		return c.Status(400).JSON(fiber.Map{
+			"message": "User with this credentials does not exist",
+		})
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(candidate.Password), []byte(doc.Password)); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"message": "Wrong credentials",
+		})
+	}
+
+	claims := config.JwtClaims{
+		candidate.Username,
+		candidate.Role,
+		candidate.ID,
+		jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedString, err := token.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
 	return c.Status(201).JSON(fiber.Map{
-		"credentials": doc,
+		"message": "Successfully logged in!",
+		"token":   signedString,
 	})
 }
 
@@ -34,7 +71,7 @@ func Register(c *fiber.Ctx) error {
 		})
 	}
 
-	var existingUser models.User
+	existingUser := &models.User{}
 	db.DB.Db.Where("email = ?", doc.Email).First(&existingUser)
 
 	if existingUser.Email == doc.Email {
@@ -43,29 +80,24 @@ func Register(c *fiber.Ctx) error {
 		})
 	}
 
-	var validRole bool
-
-	if doc.Role == "" {
-		doc.Role = "user"
-	}
-
-	for _, x := range models.Roles {
-		if x == doc.Role {
-			validRole = true
-		}
-	}
-
-	if !validRole {
-		return c.Status(400).JSON(fiber.Map{
-			"message":   "Provided role is invalid",
-			"validRole": validRole,
+	if doc.Role != "" {
+		return c.Status(403).JSON(fiber.Map{
+			"message": "Forbidden",
 		})
 	}
 
+	doc.Role = "user"
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(doc.Password), 10)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+
+	doc.Password = string(hashedPassword)
 	db.DB.Db.Create(&doc)
 
 	return c.Status(201).JSON(fiber.Map{
-		"message": "Successfully created an account",
-		"user":    doc,
+		"message": "Successfully created an account!",
 	})
 }
