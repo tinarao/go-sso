@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/gofiber/contrib/swagger"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
@@ -21,17 +20,11 @@ func main() {
 	port := os.Getenv("PORT")
 
 	app.Use(logger.New())
-	app.Use(swagger.New(swagger.Config{
-		BasePath: "/docs",
-		Path:     "docs",
-		Title:    "Go SSO docs",
-	}))
 
 	router.SetupRoutes(app)
 	db.Connect()
 
-	app.Listen(":" + port)
-	if err != nil {
+	if err := app.Listen(":" + port); err != nil {
 		log.Fatal(err)
 	}
 }
